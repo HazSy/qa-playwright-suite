@@ -59,6 +59,9 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
 
+      - name: Comprobar los tipos
+        run: npm run typecheck
+
       - name: Ejecutar la suite
         run: npx playwright test --project=chromium
 
@@ -85,6 +88,7 @@ jobs:
 
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+      - run: npm run typecheck
       - run: npx playwright test --project=portfolio
 
       - name: Publicar informe
