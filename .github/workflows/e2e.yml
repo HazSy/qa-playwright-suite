@@ -1,0 +1,96 @@
+name: E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * 1"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  opsdesk:
+    name: E2E contra OpsDesk
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      DATABASE_URL: "file:./dev.db"
+      AUTH_SECRET: "ci-secret-de-al-menos-32-caracteres-para-firmar"
+
+    steps:
+      - name: Descargar la suite
+        uses: actions/checkout@v4
+
+      - name: Descargar OpsDesk
+        uses: actions/checkout@v4
+        with:
+          repository: HazSy/opsdesk
+          path: opsdesk
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            opsdesk/package-lock.json
+
+      - name: Preparar OpsDesk
+        working-directory: opsdesk
+        run: |
+          npm ci
+          npx prisma generate
+          npx prisma db push --skip-generate
+          node prisma/seed.mjs
+          npm run build
+
+      - name: Arrancar OpsDesk
+        working-directory: opsdesk
+        run: |
+          npm start &
+          npx --yes wait-on http://localhost:3000/login --timeout 90000
+
+      - name: Instalar Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Ejecutar la suite
+        run: npx playwright test --project=chromium
+
+      - name: Publicar informe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-opsdesk
+          path: playwright-report/
+          retention-days: 14
+
+  portfolio:
+    name: Auditoría del portfolio público
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npx playwright test --project=portfolio
+
+      - name: Publicar informe
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-portfolio
+          path: playwright-report/
+          retention-days: 14

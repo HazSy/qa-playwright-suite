@@ -1,0 +1,12 @@
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
+
+# Informes y capturas generados
+*.png
+!docs/**/*.png
+
+.DS_Store
+*.log
